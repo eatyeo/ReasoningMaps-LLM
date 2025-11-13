@@ -23,13 +23,7 @@ class ReasoningMap:
         of the LLM's output (e.g., "1. Argument Breakdown", "4. Final Conclusion")
         and stores them.
         """
-        
-        # --- THIS IS THE FIX ---
-        # This regex is now much more flexible.
-        # It allows for:
-        #   - Optional period after the number (1. or 1)
-        #   - Optional asterisks around the title (**Title:** or Title:)
-        #   - Handles the final step correctly.
+
         pattern = re.compile(
             r"(\d+)\.?\s*\**([^:]+):\**\s*(.*?)(?=\n\d+\.?\s*\**|\Z)", 
             re.DOTALL
@@ -41,7 +35,7 @@ class ReasoningMap:
             step_title = match.group(2).strip()
             step_content = match.group(3).strip()
             
-            # Standardize titles just in case (e.g., "Argument Breakdown")
+            # Standardize titles (e.g., "Argument Breakdown")
             if "argument breakdown" in step_title.lower():
                 self.steps["Argument Breakdown"] = step_content
             elif "question analysis" in step_title.lower():
@@ -140,10 +134,26 @@ class ReasoningMap:
             else:
                 color_map.append("#ffddc1") # Light orange
         
-        # Use a layout that shows the flow
-        pos = nx.planar_layout(self.graph) 
-        if not pos:
-             pos = nx.spring_layout(self.graph, k=1.0, seed=42) # fallback layout
+        # ---------------------
+        # Manually define the positions for a clean, top-down flow
+        pos = {}
+        if "Context" in self.graph:
+            pos["Context"] = (0.5, 0.9)
+        if "Argument Breakdown" in self.graph:
+            pos["Argument Breakdown"] = (0.5, 0.7)
+        if "Question Analysis" in self.graph:
+            pos["Question Analysis"] = (0.5, 0.5)
+        if "Strategic Evaluation" in self.graph:
+            pos["Strategic Evaluation"] = (0.5, 0.3)
+        if "Final Conclusion" in self.graph:
+            pos["Final Conclusion"] = (0.5, 0.1)
+
+        # Fallback if for some reason a node was missed
+        for node in self.graph.nodes():
+            if node not in pos:
+                print(f"Warning: Node '{node}' missing from manual layout. Adding.")
+                pos[node] = (0.1, 0.1)
+        # ---------------------
 
         nx.draw(
             self.graph,
