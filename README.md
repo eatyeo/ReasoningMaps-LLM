@@ -1,4 +1,4 @@
-# Reasoning Maps for LLMs: Mapping Logical and Cognitive Errors in LLMs
+# Mapping Logical and Cognitive Errors in LLMs
 
 This project is a Python framework to analyze the logical reasoning capabilities of Large Language Models (LLMs) on LSAT (Law School Admission Test) problems.
 
@@ -17,6 +17,14 @@ This framework operates in three main stages:
 ### 3. Analysis (`analyze_results.py`):
 - Reads the `results.csv` file, checks the LLM's answer against the ground truth, and categorizes each question by type (e.g., "Flaw," "Assumption") to find and chart recurring error patterns. The full list of categories can be seen in the `categorize_question` function.
 
+## Tech Stack
+The project relies on the following key technologies and libraries:
+- **Language Model (LLM)**: Google Gemini API (`gemini-2.5-flash-preview-09-2025`)
+- **Core Language**: Python 3
+- **Data Handling**: pandas, HuggingFace datasets (for LSAT data)
+- **Networking**: httpx (asynchronous API calls)
+- **Graph/Visualization**: networkx, matplotlib (for Reasoning Maps and Bar Charts)
+- **Utilities**: python-dotenv, asyncio, re (for robust text parsing)
 
 ## Setup
 
@@ -94,3 +102,14 @@ The report shows one failure. By checking results.csv for the failed problem, we
 The script also generates a bar chart showing the error counts for all tested categories, providing a clear picture of the LLM's strengths and weaknesses.
 
 ![Bar chart showing LLM error patterns](assets/example_error_patterns_barchart.png)
+
+## Acknowledgments
+
+- **Data Source**: The `tasksource/lsat-lr` dataset from Hugging Face for providing a robust benchmark of logical reasoning problems.
+- **LLM API Service**: The Google Gemini API for providing a high-performance, accessible service for LLM querying.
+
+## License
+
+This project is licensed under the MIT License.
+
+See the LICENSE file for details.
