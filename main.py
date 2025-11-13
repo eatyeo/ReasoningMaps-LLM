@@ -9,7 +9,7 @@ from reasoning_parser import ReasoningMap
 from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-NUM_PROBLEMS_TO_ANALYZE = 50
+NUM_PROBLEMS_TO_ANALYZE = 100
 RESULTS_FILE = "results.csv"
 MAPS_DIR = "reasoning_maps"
 # Wait 6.1 seconds to stay under Gemini's 10 requests/minute limit
@@ -94,7 +94,6 @@ async def main():
          print("CRITICAL: LLM_KEY not found in .env. Exiting.")
          return
          
-    # This is the correct base URL
     base_url = "https://generativelanguage.googleapis.com"
     
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as session:
