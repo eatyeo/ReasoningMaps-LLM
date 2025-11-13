@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import re
-import matplotlib.pyplot as plt # Import matplotlib
+import matplotlib.pyplot as plt
 
 RESULTS_FILE = "results.csv"
 CHART_FILE = "error_patterns_barchart.png"
@@ -91,8 +91,7 @@ def analyze_results():
         print("Error: results.csv is empty.")
         return
 
-    # --- THIS IS THE NEW, SMARTER ANALYSIS ---
-    
+    # --- ANALYSIS ---
     # 1. API Error Analysis
     api_errors = df[df['llm_answer'] == 'API Error']
     api_error_count = len(api_errors)
@@ -102,8 +101,6 @@ def analyze_results():
     print(f"API Errors (e.g., 429 Limit): {api_error_count}")
     
     # 2. Filter out API errors to get a clean DataFrame for accuracy
-    # --- THIS IS THE FIX ---
-    # We define clean_df *once* and use .copy() to avoid warnings.
     clean_df = df[df['llm_answer'] != 'API Error'].copy()
     
     if clean_df.empty:
@@ -122,50 +119,40 @@ def analyze_results():
     print(f"LLM Accuracy: {accuracy:.2f}%")
 
     # 4. Create the 'question_type' column on the clean DataFrame
-    # This line is now safe and won't produce a warning.
     clean_df.loc[:, 'question_type'] = clean_df['question_text'].apply(categorize_question)
     
     # 5. Error Analysis (on clean data)
-    # This is now based on the *copied* clean_df
     error_df = clean_df[clean_df['was_llm_correct'] == False]
     
     if error_df.empty:
         print("\n--- Error Analysis ---")
         print("No errors found! The LLM was 100% correct on successful requests.")
         
-        # --- NEW ---
-        # Still generate a chart, but show all 0s
         all_tested_types = clean_df['question_type'].value_counts()
         all_tested_types[:] = 0 # Set all counts to 0
         print("\n--- Generating Visualization ---")
         create_error_barchart(all_tested_types)
-        # --- END NEW ---
         return
 
     print("\n--- Recurring Patterns of Error ---")
     print("The LLM struggled most with the following question types:")
     
-    # This is still correct for the text report
     error_counts = error_df['question_type'].value_counts()
     
     for q_type, count in error_counts.items():
         print(f'  - {q_type} \n    (Failed {count} time(s))')
         
-    # --- THIS IS THE NEW PART ---
     # 6. Create the comprehensive visualization
     print("\n--- Generating Visualization ---")
     
-    # Get *all* unique question types that were tested
     all_tested_counts = clean_df['question_type'].value_counts()
-    # Create a new series filled with 0s
     all_tested_counts[:] = 0
     
-    # Now, update this "all 0s" series with the *actual* error counts
+    # Now, update this "all 0s" series with the actual error counts
     # This will result in a chart with (e.g.) Flaw: 0, Assumption: 0, Method: 1
     all_tested_counts.update(error_counts)
     
     create_error_barchart(all_tested_counts)
-    # ----------------------------
 
 if __name__ == "__main__":
     analyze_results()
