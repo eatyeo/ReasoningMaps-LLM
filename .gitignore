@@ -1,3 +1,5 @@
 .DS_Store
 .env
 __pycache__/load_lsat.cpython-313.pyc
+__pycache__/llm_client.cpython-313.pyc
+__pycache__/reasoning_parser.cpython-313.pyc

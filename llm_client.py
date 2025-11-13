@@ -15,9 +15,11 @@ except ImportError:
     print("Make sure both files are in the same folder.")
     exit()
 
-# 3. Setup OpenAI API
+# 3. Setup Gemini API
 API_KEY = os.getenv("LLM_KEY")
-API_URL = "https://api.openai.com/v1/chat/completions"
+MODEL = "gemini-2.0-flash"  # Use an available Gemini model (adjust as needed)
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+
 
 async def get_llm_reasoning(lsat_problem):
     if not API_KEY:
@@ -39,7 +41,7 @@ Output Format:
 3. Strategic Evaluation: Analyze each choice based on the strategy.
 4. Final Conclusion: State the correct answer letter.
 """
-    
+
     # --- User Prompt ---
     user_prompt = f"""
 Context: {lsat_problem['context']}
@@ -48,53 +50,56 @@ Choices:
 {options_text}
 """
 
-    # --- OpenAI Payload ---
+    # --- Gemini Payload ---
     payload = {
-        "model": "gpt-3.5-turbo", # or any other model
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+        "contents": [
+            {"role": "user", "parts": [{"text": system_prompt + "\n" + user_prompt}]}
         ],
-        "temperature": 0.5
+        "generationConfig": {
+            "temperature": 0.5,
+            "maxOutputTokens": 1024
+        }
     }
 
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"
+        "Content-Type": "application/json"
     }
 
     # --- Make Request ---
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(API_URL, headers=headers, json=payload)
-            
+
             if response.status_code == 200:
                 data = response.json()
-                return data['choices'][0]['message']['content']
+                # Gemini responses store text here:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
             else:
                 return f"Error {response.status_code}: {response.text}"
     except Exception as e:
         return f"Request failed: {str(e)}"
 
+
 # --- Main Test Runner ---
 async def main():
-    print("--- Starting LLM Client ---")
-    
+    print("--- Starting Gemini Client ---")
+
     # 1. Fetch Data
     data = fetch_lsat_data(1)
     if not data:
         print("No data found. Exiting.")
         return
 
-    # 2. Send to LLM
+    # 2. Send to Gemini
     print(f"Analyzing Problem ID: {data[0]['id_string']}...")
     reasoning = await get_llm_reasoning(data[0])
-    
+
     # 3. Print Result
-    print("\n" + "="*30)
+    print("\n" + "=" * 30)
     print("AI REASONING OUTPUT:")
-    print("="*30)
+    print("=" * 30)
     print(reasoning)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

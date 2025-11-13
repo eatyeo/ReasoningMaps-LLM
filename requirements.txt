@@ -1,5 +1,5 @@
-list of all the Python libraries this project depends on:
 datasets
-openai
+httpx
+python-dotenv
 networkx
 matplotlib
