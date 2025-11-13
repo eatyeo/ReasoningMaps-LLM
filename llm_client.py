@@ -1,0 +1,1 @@
+# holds all the logic for communicating with the language model (e.g., OpenAI, or a local model via Ollama).
