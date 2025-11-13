@@ -2,15 +2,18 @@ import asyncio
 import os
 import pandas as pd
 import httpx
+import time
 from load_lsat import fetch_lsat_data
 from llm_client import get_llm_reasoning
 from reasoning_parser import ReasoningMap
+from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-# run 5 for a test (will change to larger number later)
-NUM_PROBLEMS_TO_ANALYZE = 5
+NUM_PROBLEMS_TO_ANALYZE = 50
 RESULTS_FILE = "results.csv"
 MAPS_DIR = "reasoning_maps"
+# Wait 6.1 seconds to stay under Gemini's 10 requests/minute limit
+RATE_LIMIT_DELAY = 6.1 
 
 async def process_problem(problem, session):
     """
@@ -22,12 +25,13 @@ async def process_problem(problem, session):
     # 1. GET LLM REASONING
     raw_text = await get_llm_reasoning(problem, session)
     
-    if "Error" in raw_text:
+    # Check for API errors
+    if raw_text.startswith("Error"):
         print(f"Failed to get LLM reasoning: {raw_text}")
         return {
             "id_string": problem['id_string'],
             "was_llm_correct": False,
-            "llm_answer": "Error",
+            "llm_answer": "API Error", # Specific error type
             "correct_answer": chr(problem['label'] + ord('A')),
             "question_text": problem['question'],
             "error_message": raw_text,
@@ -46,7 +50,7 @@ async def process_problem(problem, session):
     map_filename = f"{MAPS_DIR}/{problem['id_string']}_map.png"
     map.visualize(save_path=map_filename)
 
-    llm_answer_char = "N/A"
+    llm_answer_char = "N/A (Parse Fail)" # Default if parser fails
     if map.llm_answer is not None:
          llm_answer_char = chr(map.llm_answer + ord('A'))
 
@@ -83,9 +87,6 @@ async def main():
     # List to store all our results
     all_results = []
     
-    # Create one httpx session to reuse connections (much faster)
-    # Need to get the API key for this one-time client
-    from dotenv import load_dotenv
     load_dotenv()
     api_key = os.getenv("LLM_KEY")
     
@@ -93,18 +94,20 @@ async def main():
          print("CRITICAL: LLM_KEY not found in .env. Exiting.")
          return
          
-    # This is the base URL without the ?key= part
+    # This is the correct base URL
     base_url = "https://generativelanguage.googleapis.com"
     
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as session:
-        # Pass the API key to the function
         session.api_key = api_key 
         
-        # Create a list of tasks to run concurrently
-        tasks = [process_problem(problem, session) for problem in lsat_data]
-        results = await asyncio.gather(*tasks)
-        
-        all_results.extend(results)
+        for i, problem in enumerate(lsat_data):
+            result = await process_problem(problem, session)
+            all_results.append(result)
+            
+            # Don't sleep after the very last item
+            if i < len(lsat_data) - 1:
+                print(f"Waiting {RATE_LIMIT_DELAY}s to avoid rate limit...")
+                await asyncio.sleep(RATE_LIMIT_DELAY) # Wait
 
     # 5. SAVE TO CSV
     print(f"\n--- Analysis Complete ---")
@@ -116,11 +119,8 @@ async def main():
     df.to_csv(RESULTS_FILE, index=False)
     print(f"All results saved to {RESULTS_FILE}")
 
-    # 6. PRINT SUMMARY
-    if not df.empty:
-        accuracy = df['was_llm_correct'].mean() * 100
-        print(f"Overall LLM Accuracy: {accuracy:.2f}%")
-        print(f"Total Errors (API or Parsing): {df[df['llm_answer'] == 'Error'].shape[0]}")
+    # 6. PRINT SUMMARY (moved to analyze_results.py)
+    print(f"\nRun 'python analyze_results.py' to see the full report.")
     
 
 if __name__ == "__main__":
