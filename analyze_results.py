@@ -1,8 +1,10 @@
 import pandas as pd
 import os
 import re
+import matplotlib.pyplot as plt # Import matplotlib
 
 RESULTS_FILE = "results.csv"
+CHART_FILE = "error_patterns_barchart.png"
 
 def categorize_question(question_text):
     """
@@ -38,6 +40,37 @@ def categorize_question(question_text):
         
     return "Other/Uncategorized"
 
+def create_error_barchart(error_counts):
+    """
+    Creates and saves a horizontal bar chart of the error counts.
+    """
+    if error_counts.empty:
+        return # Don't create a chart if there are no errors
+
+    try:
+        # Invert the data so the most common error is at the top
+        error_counts = error_counts.iloc[::-1]
+        
+        plt.figure(figsize=(10, 8))
+        
+        # Create a horizontal bar chart
+        error_counts.plot(kind='barh', color='#ff6b6b')
+        
+        plt.title('Recurring Patterns of LLM Error by Question Type', fontsize=16)
+        plt.xlabel('Number of Failures', fontsize=12)
+        plt.ylabel('LSAT Question Type', fontsize=12)
+        
+        # Ensure labels don't get cut off
+        plt.tight_layout()
+        
+        # Save the chart to a file
+        plt.savefig(CHART_FILE)
+        print(f"Saved error analysis chart to: {CHART_FILE}")
+        plt.close()
+
+    except Exception as e:
+        print(f"Error creating bar chart: {e}")
+
 def analyze_results():
     """
     Loads the results.csv file and performs a statistical analysis
@@ -58,7 +91,7 @@ def analyze_results():
         print("Error: results.csv is empty.")
         return
 
-    # --- ANALYSIS ---
+    # --- THIS IS THE NEW, SMARTER ANALYSIS ---
     
     # 1. API Error Analysis
     api_errors = df[df['llm_answer'] == 'API Error']
@@ -69,8 +102,10 @@ def analyze_results():
     print(f"API Errors (e.g., 429 Limit): {api_error_count}")
     
     # 2. Filter out API errors to get a clean DataFrame for accuracy
+    # --- THIS IS THE FIX ---
+    # We define clean_df *once* and use .copy() to avoid warnings.
     clean_df = df[df['llm_answer'] != 'API Error'].copy()
-
+    
     if clean_df.empty:
         print("No successful API responses to analyze.")
         return
@@ -87,23 +122,50 @@ def analyze_results():
     print(f"LLM Accuracy: {accuracy:.2f}%")
 
     # 4. Create the 'question_type' column on the clean DataFrame
+    # This line is now safe and won't produce a warning.
     clean_df.loc[:, 'question_type'] = clean_df['question_text'].apply(categorize_question)
-
+    
     # 5. Error Analysis (on clean data)
+    # This is now based on the *copied* clean_df
     error_df = clean_df[clean_df['was_llm_correct'] == False]
     
     if error_df.empty:
         print("\n--- Error Analysis ---")
         print("No errors found! The LLM was 100% correct on successful requests.")
+        
+        # --- NEW ---
+        # Still generate a chart, but show all 0s
+        all_tested_types = clean_df['question_type'].value_counts()
+        all_tested_types[:] = 0 # Set all counts to 0
+        print("\n--- Generating Visualization ---")
+        create_error_barchart(all_tested_types)
+        # --- END NEW ---
         return
 
     print("\n--- Recurring Patterns of Error ---")
     print("The LLM struggled most with the following question types:")
     
+    # This is still correct for the text report
     error_counts = error_df['question_type'].value_counts()
     
     for q_type, count in error_counts.items():
         print(f'  - {q_type} \n    (Failed {count} time(s))')
+        
+    # --- THIS IS THE NEW PART ---
+    # 6. Create the comprehensive visualization
+    print("\n--- Generating Visualization ---")
+    
+    # Get *all* unique question types that were tested
+    all_tested_counts = clean_df['question_type'].value_counts()
+    # Create a new series filled with 0s
+    all_tested_counts[:] = 0
+    
+    # Now, update this "all 0s" series with the *actual* error counts
+    # This will result in a chart with (e.g.) Flaw: 0, Assumption: 0, Method: 1
+    all_tested_counts.update(error_counts)
+    
+    create_error_barchart(all_tested_counts)
+    # ----------------------------
 
 if __name__ == "__main__":
     analyze_results()
